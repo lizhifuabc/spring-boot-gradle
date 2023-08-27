@@ -1,0 +1,64 @@
+plugins {
+    // springboot 插件及版本
+    id 'org.springframework.boot' version '3.1.3'
+    id 'io.spring.dependency-management' version '1.1.3'
+    id 'java'
+}
+
+group = 'com.tomato'
+version = '1.0-SNAPSHOT'
+
+java {
+    // 版本
+    sourceCompatibility = '17'
+}
+
+/*
+ * 指定所使用的仓库
+ */
+repositories {
+    // Gradle没有自己的中央仓库
+    // 先从本地maven仓库寻找依赖的jar包，存在则直接使用本地maven仓库的jar
+    mavenLocal()
+    // 本地maven仓库没有则从远程仓库下载jar包，并保存到 环境变量GRADLE_USER_HOME 配置的路径下
+    // 设置maven仓库阿里镜像地址
+    maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+    // 配置使用Maven的中央仓库
+    mavenCentral()
+}
+dependencies {
+    // springboot web starter 依赖
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.projectlombok:lombok'
+    // springboot docker compose 依赖
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+    // springboot test starter 依赖
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+// 自定义打包命令
+def jarName = String.format("%s-%s.jar",project.name,version)
+// 拷贝文件 dependsOn: bootJar 依赖springboot 插件的 bootJar打包命令
+tasks.register('copyConfigFile', Copy) {
+    dependsOn bootJar
+    // 清除app目录的历史文件
+    delete "app/"
+    // copy jar包 从 build/libs/ 目录到 app/ 目录
+    from('build/libs/' + jarName)
+    // copy sh 目录到 app/ 目录
+    from('layers/entrypoint.sh')
+    from('build.sh')
+    into 'app/'
+    // 重命名成我们要的名字
+    rename(jarName, project.name + '.jar')
+}
+// 依赖 clean 任务
+tasks.register('buildTodoCoderJar') {
+    dependsOn clean
+    dependsOn copyConfigFile
+}
